@@ -1,41 +1,85 @@
-package co.edu.universidad.biblioteca.modelo;
+package co.edu.universidad.biblioteca.servicio;
 
-import java.util.ArrayList;
-import java.util.List;
+import co.edu.universidad.biblioteca.modelo.Material;
+import co.edu.universidad.biblioteca.modelo.Usuario;
+import co.edu.universidad.biblioteca.excepciones.PrestamoException;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.TreeMap;
 
-public class Usuario {
-    public static final int MAX_PRESTAMOS = 3;
-    private String documento;
+public class Biblioteca {
     private String nombre;
-    private List<Material> prestamos;
+    private Map<String, Material> catalogo;
+    private Map<String, Usuario> usuarios;
 
-    public Usuario(String documento, String nombre) {
-        this.documento = documento;
+    public Biblioteca(String nombre) {
         this.nombre = nombre;
-        this.prestamos = new ArrayList<>();
+        this.catalogo = new HashMap<>();
+        this.usuarios = new HashMap<>();
     }
 
-    public boolean puedePrestarMas() {
-        return prestamos.size() < MAX_PRESTAMOS;
+    public void registrarMaterial(Material material) {
+        catalogo.put(material.getCodigo(), material);
     }
 
-    public void agregarPrestamo(Material material) {
-        prestamos.add(material);
+    public void registrarUsuario(Usuario usuario) {
+        usuarios.put(usuario.getDocumento(), usuario);
     }
 
-    public boolean quitarPrestamo(Material material) {
-        return prestamos.remove(material);
+    private Usuario buscarUsuario(String documento) throws PrestamoException {
+        if (!usuarios.containsKey(documento)) {
+            throw new PrestamoException("No existe el usuario con documento " + documento);
+        }
+        return usuarios.get(documento);
     }
 
-    public List<Material> getPrestamos() {
-        return new ArrayList<>(prestamos); // Copia defensiva
+    private Material buscarMaterial(String codigo) throws PrestamoException {
+        if (!catalogo.containsKey(codigo)) {
+            throw new PrestamoException("No existe el material con codigo " + codigo);
+        }
+        return catalogo.get(codigo);
     }
 
-    public String getDocumento() { return documento; }
-    public String getNombre() { return nombre; }
+    public void prestar(String documento, String codigo) throws PrestamoException {
+        Usuario usuario = buscarUsuario(documento);
+        Material material = buscarMaterial(codigo);
 
-    @Override
-    public String toString() {
-        return nombre + " (doc. " + documento + ") prestamos: " + prestamos.size() + "/" + MAX_PRESTAMOS;
+        if (!usuario.puedePrestarMas()) {
+            throw new PrestamoException(usuario.getNombre() + " ya tiene el maximo de " + Usuario.MAX_PRESTAMOS + " prestamos.");
+        }
+        if (!material.estaDisponible()) {
+            throw new PrestamoException("'" + material.getTitulo() + "' ya esta prestado.");
+        }
+
+        material.prestar();
+        usuario.agregarPrestamo(material);
+    }
+
+    public void devolver(String documento, String codigo) throws PrestamoException {
+        Usuario usuario = buscarUsuario(documento);
+        Material material = buscarMaterial(codigo);
+
+        if (!usuario.getPrestamos().contains(material)) {
+            throw new PrestamoException(usuario.getNombre() + " no tiene prestado '" + material.getTitulo() + "'.");
+        }
+
+        material.devolver();
+        usuario.quitarPrestamo(material);
+    }
+
+    public void listarCatalogo() {
+        Map<String, Material> ordenado = new TreeMap<>(catalogo);
+        for (Material m : ordenado.values()) {
+            System.out.println(m);
+        }
+    }
+
+    public void listarDisponibles() {
+        Map<String, Material> ordenado = new TreeMap<>(catalogo);
+        for (Material m : ordenado.values()) {
+            if (m.estaDisponible()) {
+                System.out.println(m);
+            }
+        }
     }
 }
